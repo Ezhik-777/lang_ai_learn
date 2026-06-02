@@ -4,8 +4,6 @@ import { withSentryConfig } from "@sentry/nextjs";
 const isDev = process.env.NODE_ENV !== "production";
 const sentryDsn = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN;
 
-// CSP: Clerk требует доступа к *.clerk.accounts.dev / *.clerk.com для JS, шрифты Google,
-// MediaRecorder загружает blob: для UI. Sentry опционально — добавляем если DSN задан.
 const sentryHost = sentryDsn
   ? (() => {
       try {
@@ -17,15 +15,33 @@ const sentryHost = sentryDsn
   : null;
 const sentryConnect = sentryHost ? ` https://${sentryHost}` : "";
 
+// Production Clerk использует кастомный субдомен (clerk.<your-domain>).
+// Декодируем хост из publishable key (формат: pk_(test|live)_<base64(host$)>).
+const clerkPk = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
+const clerkFrontendHost = (() => {
+  const m = clerkPk.match(/^pk_(?:test|live)_(.+)$/);
+  if (!m) return null;
+  try {
+    const decoded = Buffer.from(m[1], "base64").toString("utf8");
+    return decoded.replace(/\$+$/, "").trim() || null;
+  } catch {
+    return null;
+  }
+})();
+const clerkExtra = clerkFrontendHost ? ` https://${clerkFrontendHost}` : "";
+
+// Clerk JS грузится с *.clerk.com / *.clerk.accounts.dev (dev), но для production
+// frontend-API живёт на clerk.<your-domain>. Без него Clerk Component не отрисуется.
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval'" : ""} https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com`,
+  `script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval'" : ""} https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com${clerkExtra}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "img-src 'self' data: blob: https://img.clerk.com https://*.clerk.com",
+  `img-src 'self' data: blob: https://img.clerk.com https://*.clerk.com${clerkExtra}`,
   "media-src 'self' blob:",
-  `connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com${sentryConnect}`,
-  "frame-src https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com",
+  `connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com${clerkExtra}${sentryConnect}`,
+  `frame-src https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com${clerkExtra}`,
+  "worker-src 'self' blob:",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -68,7 +84,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-// Оборачиваем в Sentry только если DSN есть — иначе плагин падает на пустых ключах.
 export default sentryDsn
   ? withSentryConfig(nextConfig, {
       silent: true,
