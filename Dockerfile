@@ -25,9 +25,23 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Programmatic Drizzle migrator: только runtime-минимум (drizzle-orm + pg уже в standalone node_modules)
+# Programmatic Drizzle migrator: явно подкладываем drizzle-orm + pg в top-level node_modules,
+# потому что Next standalone их не трейсит (migrator не импортируется server-кодом).
 COPY --from=builder --chown=nextjs:nodejs /app/lib/db/migrations ./lib/db/migrations
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrate.mjs ./scripts/migrate.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/drizzle-orm ./migrator_modules/drizzle-orm
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pg ./migrator_modules/pg
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pg-pool ./migrator_modules/pg-pool
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pg-types ./migrator_modules/pg-types
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pg-connection-string ./migrator_modules/pg-connection-string
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pg-protocol ./migrator_modules/pg-protocol
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pg-cloudflare ./migrator_modules/pg-cloudflare
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/postgres-array ./migrator_modules/postgres-array
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/postgres-bytea ./migrator_modules/postgres-bytea
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/postgres-date ./migrator_modules/postgres-date
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/postgres-interval ./migrator_modules/postgres-interval
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/split2 ./migrator_modules/split2
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/xtend ./migrator_modules/xtend
 
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
