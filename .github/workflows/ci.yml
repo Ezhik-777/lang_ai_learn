@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      - name: Audit (high+)
+        run: npm audit --audit-level=high
+        continue-on-error: false
+      - run: npm run lint
+      - name: Build
+        env:
+          DATABASE_URL: postgres://x:x@localhost:5432/x
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_dummy
+          CLERK_SECRET_KEY: sk_test_dummy
+          OPENAI_API_KEY: sk-dummy
+          AZURE_SPEECH_KEY: dummy
+          AZURE_SPEECH_REGION: westeurope
+        run: npm run build
