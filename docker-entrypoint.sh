@@ -1,13 +1,12 @@
 #!/bin/sh
-set -euo pipefail
+set -eu
 
 if [ -z "${DATABASE_URL:-}" ]; then
   echo "FATAL: DATABASE_URL is not set" >&2
   exit 1
 fi
 
-echo "→ applying database migrations…"
-npx drizzle-kit migrate
+node ./scripts/migrate.mjs
 
 echo "→ starting Next.js"
 exec node server.js
